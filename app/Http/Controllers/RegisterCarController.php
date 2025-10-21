@@ -222,7 +222,7 @@ class RegisterCarController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             $message = $e->getMessage();
-            dd($e);
+
             if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
                 $message = 'Xe này đã được đăng ký trong ngày. Vui lòng kiểm tra lại.';
             } else {
