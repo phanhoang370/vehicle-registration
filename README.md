@@ -13,13 +13,15 @@ Trước khi bắt đầu, đảm bảo máy bạn đã có:
 
 ---
 
-## 2. Clone project
+
+2. Clone project
 
 ```bash
 git clone https://github.com/<ten-tai-khoan>/<ten-du-an>.git
+"git clone https://github.com/phanhoang370/vehicle-registration.git"
 cd <ten-du-an>
 
-## 3. Cài đặt backend (Composer)
+1. Cài đặt backend (Composer)
 
 Cài toàn bộ package Laravel và các dependency:
 
@@ -45,7 +47,7 @@ DB_DATABASE=vehicle_registration
 DB_USERNAME=root
 DB_PASSWORD=
 
-## 4. Chạy migrate và seed (nếu có)
+2. Chạy migrate và seed (nếu có)
 
 Tạo bảng trong database:
 
@@ -53,7 +55,7 @@ php artisan migrate
 hoặc chạy riêng php artisan migrate --path=database/migrations/2025_10_21_114105_create_vehicle_registrations_table.php
 
 
-## 5. Chạy project
+3. Chạy project
 php artisan serve
 
 Truy cập: 👉 http://127.0.0.1:8000
