@@ -177,7 +177,7 @@ class RegisterCarController extends Controller
             $dangKyId = DB::table('vehicle_registrations')->insertGetId([
                 'register_date' => $nextDay,
                 'delivery_date' => $request->delivery_date,
-                'registration_time' => '',
+                'registration_time' => '08:00',
                 'registration_round' => 1,
                 'contract_no' => $request->contract_no,
                 'truck_plate' => $request->truck_plate,
@@ -292,16 +292,70 @@ class RegisterCarController extends Controller
 
             $registerDate = Carbon::now();
             $nextDay = $registerDate->addDay()->format('Y-m-d');
+
+            // Lấy tất cả xe đã đăng ký và đơn vị của chúng
+            $existingTrucks = DB::table('vehicle_registrations')
+                ->whereNotIn('registration_status', ['cancelled', 'rejected'])
+                ->select('truck_plate', 'transportation_company', 'register_date', 'registration_status')
+                ->get()
+                ->groupBy('truck_plate');
+
+            // Tạo map: truck_plate => transportation_company
+            $truckCompanyMap = [];
+            foreach ($existingTrucks as $truckPlate => $registrations) {
+                $truckCompanyMap[$truckPlate] = $registrations->first()->transportation_company;
+            }
+
+            // Tạo map: truck_plate + date => exists
+            $truckDateMap = [];
+            foreach ($existingTrucks as $truckPlate => $registrations) {
+                foreach ($registrations as $reg) {
+                    $key = $truckPlate . '|' . $reg->register_date;
+                    $truckDateMap[$key] = true;
+                }
+            }
+
+
             foreach ($rows as $row) {
                 // Bỏ qua hàng trống
                 if (empty($row[3]) || empty($row[11])) {
                     continue;
                 }
+                $dataTruckPlate = $row[3] ?? null;
+                $transportationCompany =  $row[15] ?? null;
+                // 1. Check xe đã thuộc về đơn vị khác chưa
+                if (isset($truckCompanyMap[$dataTruckPlate])) {
+                    $existingCompany = $truckCompanyMap[$dataTruckPlate];
+                    if ($existingCompany !== $transportationCompany) {
+                        throw new Exception(
+                            "Xe {$dataTruckPlate} đã đăng ký cho đơn vị '{$existingCompany}'. " .
+                            "Không thể đăng ký cho '{$transportationCompany}'"
+                        );
+                    }
+                }
+
+                // // 2. Check xe đã đăng ký cho ngày này chưa
+                $checkKey = $dataTruckPlate . '|' . $nextDay;
+                if (isset($truckDateMap[$checkKey])) {
+                    throw new Exception(
+                        "Xe {$dataTruckPlate} đã được đăng ký cho ngày {$nextDay}"
+                    );
+                }
+
+                // // 3. Check trùng lặp trong file Excel (giữa các dòng)
+                // foreach ($validData as $existingData) {
+                //     if ($existingData['truck_plate'] === $data['truck_plate'] && 
+                //         $existingData['register_date'] === $nextDay) {
+                //         throw new Exception(
+                //             "Xe {$dataTruckPlate} bị trùng trong file Excel (nhiều dòng cho cùng ngày)"
+                //         );
+                //     }
+                // }
 
                 $insertData[] = [
                     'register_date' => $nextDay,
                     'delivery_date' => $nextDay,
-                    'registration_time' => '',
+                    'registration_time' => '08:00',
                     'registration_round' => 1,
                     'contract_no' => $row[2] ?? null,
                     'truck_plate' => $row[3] ?? null,

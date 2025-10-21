@@ -8,7 +8,7 @@
         <div class="col-md-10">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fas fa-truck"></i>Danh sách đăng Ký Xe Nhận Hàng Tại Mỏ</h4>
+                    <h4 class="mb-0"><i class="fas fa-truck"></i>Danh sách đăng ký xe nhận hàng tại mỏ</h4>
                 </div>
                 
                 <div class="card-body">
@@ -46,6 +46,8 @@
                                 <th>Mã hộ chiếu</th>
                                 <th>Số điện thoại</th>
                                 <th>Đơn vị vận chuyển</th>
+                                <th>Nhà thầu phụ</th>
+                                <th>Ghi Chú Thêm</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -95,6 +97,8 @@
                             <td>${car.id_passport}</td>
                             <td>${car.phone_number ?? ''}</td>
                             <td>${car.transportation_company ?? ''}</td>
+                            <td>${car.subcontractor ?? ''}</td>
+                            <td>${car.note ?? ''}</td>
                         </tr>
                     `;
                 });
