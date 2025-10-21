@@ -132,7 +132,7 @@ class RegisterCarController extends Controller
             $endTime1 = Carbon::createFromTime(16, 0, 0); // 16:00:00
 
             $startTime2 = Carbon::createFromTime(20, 0, 0);  // 20:00:00
-            $endTime2 = Carbon::createFromTime(23, 50, 0); // 22:00:00
+            $endTime2 = Carbon::createFromTime(22, 0, 0); // 22:00:00
 
             // Kiểm tra nếu KHÔNG nằm trong các khung giờ hợp lệ
         
@@ -279,7 +279,7 @@ class RegisterCarController extends Controller
             $endTime1 = Carbon::createFromTime(16, 0, 0); // 16:00:00
 
             $startTime2 = Carbon::createFromTime(20, 0, 0);  // 20:00:00
-            $endTime2 = Carbon::createFromTime(23, 50, 0); // 22:00:00
+            $endTime2 = Carbon::createFromTime(22, 00, 0); // 22:00:00
 
             // Kiểm tra nếu KHÔNG nằm trong các khung giờ hợp lệ
         
