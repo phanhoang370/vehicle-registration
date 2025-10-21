@@ -11,7 +11,7 @@
                     <h4 class="mb-0"><i class="fas fa-truck"></i> Đăng Ký Xe Nhận Hàng Tại Mỏ</h4>
                 </div>
                 
-                <div class="card-body">
+                <div class="card-body card-body-msg">
                     <!-- Thông báo lỗi -->
                     @if ($errors->any())
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -44,11 +44,6 @@
                         </ul>
                     </div>
 
-                    <form id="importForm" enctype="multipart/form-data">
-                        <input type="file" name="file" id="file" accept=".xlsx, .xls, .csv">
-                        <button type="button" class="btn btn-primary" id="btnImport">Import Excel</button>
-                    </form>
-
                     <form method="POST" id="formDangKy">
                         @csrf
 
@@ -66,7 +61,7 @@
                                                class="form-control @error('register_date') is-invalid @enderror" 
                                                id="register_date" 
                                                name="register_date" 
-                                               value="{{ old('register_date', date('Y-m-d')) }}"
+                                               value="{{ old('register_date', date('Y-m-d', strtotime('+1 day'))) }}"
                                                disabled
                                                >
                                         @error('register_date')
@@ -76,14 +71,14 @@
 
                                     <!-- Ngày Nhận Hàng -->
                                     <div class="col-md-6 mb-3">
-                                        <label for="ngay_nhan_hang" class="form-label">Ngày Nhận Hàng (Ngày Mai) <span class="text-danger">*</span></label>
+                                        <label for="delivery_date" class="form-label">Ngày Nhận Hàng (Ngày Mai) <span class="text-danger">*</span></label>
                                         <input type="text" 
-                                               class="form-control @error('ngay_nhan_hang') is-invalid @enderror" 
-                                               id="ngay_nhan_hang" 
-                                               name="ngay_nhan_hang" 
-                                               value="{{ old('ngay_nhan_hang', date('Y-m-d', strtotime('+1 day'))) }}"
+                                               class="form-control @error('delivery_date') is-invalid @enderror" 
+                                               id="delivery_date" 
+                                               name="delivery_date" 
+                                               value="{{ old('delivery_date', date('Y-m-d', strtotime('+1 day'))) }}"
                                                >
-                                        @error('ngay_nhan_hang')
+                                        @error('delivery_date')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                         <small class="text-muted">Tự động tính ngày mai</small>
@@ -368,13 +363,13 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-12 mb-3">
-                                        <label for="ghi_chu" class="form-label">Ghi Chú Thêm</label>
-                                        <textarea class="form-control @error('ghi_chu') is-invalid @enderror" 
-                                                  id="ghi_chu" 
-                                                  name="ghi_chu" 
+                                        <label for="note" class="form-label">Ghi Chú Thêm</label>
+                                        <textarea class="form-control @error('note') is-invalid @enderror" 
+                                                  id="note" 
+                                                  name="note" 
                                                   rows="3"
-                                                  placeholder="Nhập ghi chú nếu có...">{{ old('ghi_chu') }}</textarea>
-                                        @error('ghi_chu')
+                                                  placeholder="Nhập ghi chú nếu có...">{{ old('note') }}</textarea>
+                                        @error('note')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
@@ -387,10 +382,10 @@
                             <a href="{{ route('register-car.index') }}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Quay Lại
                             </a>
-                            <div>
+                            {{-- <div>
                                 <button type="reset" class="btn btn-warning me-2">
                                     <i class="fas fa-redo"></i> Làm Mới
-                                </button>
+                                </button> --}}
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Đăng Ký
                                 </button>
@@ -440,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Tự động tính ngày nhận hàng (ngày mai)
     const registerDate = document.getElementById('register_date');
-    const receiveDate = document.getElementById('ngay_nhan_hang');
+    const receiveDate = document.getElementById('delivery_date');
     
     if (registerDate) {
         registerDate.addEventListener('change', function() {
@@ -458,7 +453,6 @@ $(document).ready(function() {
     // AJAX Submit Form
     $('#formDangKy').on('submit', function(e) {
         e.preventDefault();
-        alert('asdasd');
         // Disable submit button
         const submitBtn = $(this).find('button[type="submit"]');
         const originalText = submitBtn.html();
@@ -491,7 +485,7 @@ $(document).ready(function() {
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     `;
-                    $('.card-body').prepend(alertHtml);
+                    $('.card-body-msg').prepend(alertHtml);
                     
                     // Reset form
                     $('#formDangKy')[0].reset();
@@ -517,7 +511,7 @@ $(document).ready(function() {
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     `;
-                    $('.card-body').prepend(alertHtml);
+                    $('.card-body-msg').prepend(alertHtml);
                     
                     // Show field errors
                     $.each(errors, function(field, messages) {
@@ -528,24 +522,41 @@ $(document).ready(function() {
                     
                 } else if (xhr.status === 400) {
                     // Business logic errors
-                    const message = xhr.responseJSON.message || 'Có lỗi xảy ra';
+                    const message = xhr.responseJSON?.message || 'Mỗi xe chỉ được đăng ký 1 lần mỗi ngày. Biển số xe này đã được đăng ký trong hôm nay.';
                     const alertHtml = `
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="fas fa-exclamation-triangle"></i> ${message}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     `;
-                    $('.card-body').prepend(alertHtml);
+                    $('.card-body-msg').prepend(alertHtml);
                     
                 } else {
+                    console.log(xhr,'response123');
+                    
                     // Other errors
+                    
+
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        // Dù bị jQuery nhầm, nhưng vẫn là thành công
+                        const alertHtml = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> 'Đăng ký xe thành công!'
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    $('.card-body-msg').prepend(alertHtml);
+                        $('html, body').animate({ scrollTop: 0 }, 500);
+                        return;
+                    }
+
                     const alertHtml = `
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="fas fa-exclamation-triangle"></i> Lỗi server. Vui lòng thử lại sau.
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     `;
-                    $('.card-body').prepend(alertHtml);
+                    $('.card-body-msg').prepend(alertHtml);
                 }
                 
                 // Scroll to top to show error
@@ -558,44 +569,6 @@ $(document).ready(function() {
         });
     });
 
-    // document.addEventListener("DOMContentLoaded", function () {
-    //     const startInput = document.getElementById("register_date");
-    //     const endInput = document.getElementById("ngay_nhan_hang");
-
-    //     // Hàm format yyyy-mm-dd
-    //     function formatDate(date) {
-    //     const y = date.getFullYear();
-    //     const m = String(date.getMonth() + 1).padStart(2, "0");
-    //     const d = String(date.getDate()).padStart(2, "0");
-    //     return `${y}-${m}-${d}`;
-    //     }
-
-    //     // Lấy ngày hôm nay + 1
-    //     const today = new Date();
-    //     const tomorrow = new Date(today);
-    //     tomorrow.setDate(today.getDate() + 1);
-
-    //     // Thiết lập mặc định cho ngày bắt đầu là ngày mai
-    //     startInput.value = formatDate(tomorrow);
-    //     startInput.min = formatDate(today); // không cho chọn ngày hôm qua
-
-    //     // Thiết lập mặc định cho ngày kết thúc là cùng ngày với bắt đầu
-    //     endInput.value = formatDate(tomorrow);
-    //     endInput.min = formatDate(tomorrow); // disable các ngày trước ngày bắt đầu
-
-    //     // Khi người dùng thay đổi ngày bắt đầu
-    //     startInput.addEventListener("change", function () {
-    //     const startDate = new Date(this.value);
-
-    //     // Nếu ngày kết thúc < ngày bắt đầu → set lại
-    //     if (new Date(endInput.value) < startDate) {
-    //         endInput.value = this.value;
-    //     }
-
-    //     // Cập nhật min cho ngày kết thúc
-    //     endInput.min = formatDate(startDate);
-    //     });
-    // });
 
     $(document).ready(function () {
         // Lấy ngày hôm nay và reset về 00:00
@@ -608,13 +581,13 @@ $(document).ready(function() {
         // Khởi tạo ngày bắt đầu
         $('#register_date').datepicker({
             format: 'yyyy-mm-dd',
-            startDate: today, // không cho chọn ngày trước hôm nay
+            startDate: tomorrow, // không cho chọn ngày trước hôm nay
             autoclose: true,
             todayHighlight: true
-        }).datepicker('setDate', today); // mặc định là ngày mai
+        }).datepicker('setDate', tomorrow); // mặc định là ngày mai
 
         // Khởi tạo ngày kết thúc
-        $('#ngay_nhan_hang').datepicker({
+        $('#delivery_date').datepicker({
             format: 'yyyy-mm-dd',
             startDate: tomorrow, // disable ngày trước ngày mai
             autoclose: true,
@@ -624,7 +597,7 @@ $(document).ready(function() {
         // Khi đổi ngày bắt đầu
         $('#register_date').on('changeDate', function (e) {
             const startDate = e.date;
-            const endPicker = $('#ngay_nhan_hang');
+            const endPicker = $('#delivery_date');
 
             // Cập nhật min cho ngày kết thúc
             endPicker.datepicker('setStartDate', startDate);
@@ -637,47 +610,13 @@ $(document).ready(function() {
         });
     });
 
-    $('#btnImport').click(function (e) {
-        e.preventDefault();
-
-        let fileInput = $('#file')[0].files[0];
-        if (!fileInput) {
-            alert("Vui lòng chọn file Excel trước khi upload!");
-            return;
-        }
-
-        // Tạo FormData
-        let formData = new FormData();
-        formData.append('file', fileInput);
-
-        // Thêm token CSRF của Laravel
-        formData.append('_token', '{{ csrf_token() }}');
-
-        $.ajax({
-            url: '{{ route("register-car.import-file") }}', // route trong Laravel
-            type: 'POST',
-            data: formData,
-            processData: false,  // Không xử lý dữ liệu (bắt buộc)
-            contentType: false,  // Không đặt header Content-Type (bắt buộc)
-            success: function (response) {
-                alert(response.message || "Import thành công!");
-                console.log(response);
-            },
-            error: function (xhr) {
-                let msg = xhr.responseJSON?.message || "Có lỗi xảy ra khi import!";
-                alert(msg);
-                console.error(xhr);
-            }
-        });
-    });
-    
     // Real-time check truck registration
     // let checkTimeout;
-    // $('#truck_plate, #ngay_nhan_hang').on('input change', function() {
+    // $('#truck_plate, #delivery_date').on('input change', function() {
     //     clearTimeout(checkTimeout);
         
     //     const truckPlate = $('#truck_plate').val();
-    //     const ngayNhanHang = $('#ngay_nhan_hang').val();
+    //     const ngayNhanHang = $('#delivery_date').val();
         
     //     if (truckPlate && ngayNhanHang) {
     //         checkTimeout = setTimeout(function() {
@@ -686,7 +625,7 @@ $(document).ready(function() {
     //                 method: 'POST',
     //                 data: {
     //                     truck_plate: truckPlate,
-    //                     ngay_nhan_hang: ngayNhanHang,
+    //                     delivery_date: ngayNhanHang,
     //                     _token: $('meta[name="csrf-token"]').attr('content')
     //                 },
     //                 success: function(response) {

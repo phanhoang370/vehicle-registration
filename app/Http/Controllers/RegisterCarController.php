@@ -17,7 +17,38 @@ class RegisterCarController extends Controller
      */
     public function index()
     {
-        //
+        return view('welcome'); 
+    }
+
+    public function showList() {
+        return view('list'); 
+    }
+
+    public function getList(Request $request) {
+        $perPage = 10;
+        $page = $request->input('page', 1);
+
+        // Query Builder
+        $query = DB::table('vehicle_registrations')->orderBy('id', 'desc');
+
+        // Lấy tổng số bản ghi
+        $total = $query->count();
+
+        // Lấy dữ liệu theo trang
+        $cars = $query
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
+        return response()->json([
+            'data' => $cars,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => ceil($total / $perPage),
+                'total' => $total,
+                'per_page' => $perPage,
+            ],
+        ]);
     }
 
     /**
@@ -28,6 +59,11 @@ class RegisterCarController extends Controller
         return view('register'); 
     }
 
+     public function createByExcel()
+    {
+        return view('register-by-excel'); 
+    }
+
     /**
      * Store a newly created resource in storage.
      */
@@ -36,7 +72,7 @@ class RegisterCarController extends Controller
         // Validation rules
         $validator = Validator::make($request->all(), [
             // 'register_date' => 'required|date',
-            'ngay_nhan_hang' => 'required|date|after:register_date',
+            'delivery_date' => 'date|after:register_date',
             'contract_no' => 'required|string|max:100',
             'truck_plate' => 'required|string|max:50',
             'trailer_plate' => 'nullable|string|max:50',
@@ -53,11 +89,11 @@ class RegisterCarController extends Controller
             'transportation_company' => 'required|string|max:255',
             'subcontractor' => 'nullable|string|max:100',
             'vehicle_status' => 'nullable|string|max:50',
-            'ghi_chu' => 'nullable|string',
+            'note' => 'nullable|string',
         ], [
             // 'register_date.required' => 'Vui lòng chọn ngày đăng ký',
-            'ngay_nhan_hang.required' => 'Vui lòng chọn ngày nhận hàng',
-            'ngay_nhan_hang.after' => 'Ngày nhận hàng phải sau ngày đăng ký',
+            'delivery_date.required' => 'Vui lòng chọn ngày nhận hàng',
+            'delivery_date.after' => 'Ngày nhận hàng phải sau ngày đăng ký',
             'contract_no.required' => 'Vui lòng nhập số hợp đồng',
             'truck_plate.required' => 'Vui lòng nhập biển số xe',
             'driver_name.required' => 'Vui lòng nhập tên lái xe',
@@ -79,63 +115,70 @@ class RegisterCarController extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. Kiểm tra ngày đăng ký hợp lệ (phải đăng ký trước 1 ngày)
+            
             // $registerDate = Carbon::parse($request->register_date);
             $registerDate = Carbon::now();
-            $ngayNhanHang = Carbon::parse($request->ngay_nhan_hang);
+        
+            $nextDay = $registerDate->addDay()->format('Y-m-d');
+            // if ($registerDate < $ngayNhanHang != 1) {
+            //     throw new Exception('Phải đăng ký trước 1 ngày. Ngày nhận hàng phải là ngày mai.');
+            // }
 
-            if ($registerDate < $ngayNhanHang != 1) {
-                throw new Exception('Phải đăng ký trước 1 ngày. Ngày nhận hàng phải là ngày mai.');
-            }
-
-            $gioHienTai = Carbon::now()->format('H:i:s');
-
-            $gioHienTai = Carbon::createFromFormat('H:i:s', $gioHienTai);
+            $currentTime = Carbon::now()->format('H:i:s');
+            $currentTime = Carbon::createFromFormat('H:i:s', $currentTime);
 
             // Tạo hai khung giờ cho phép
-            $khung1_batdau = Carbon::createFromTime(8, 0, 0);   // 08:00:00
-            $khung1_ketthuc = Carbon::createFromTime(16, 0, 0); // 16:00:00
+            $startTime1 = Carbon::createFromTime(8, 0, 0);   // 08:00:00
+            $endTime1 = Carbon::createFromTime(16, 0, 0); // 16:00:00
 
-            $khung2_batdau = Carbon::createFromTime(20, 0, 0);  // 20:00:00
-            $khung2_ketthuc = Carbon::createFromTime(23, 50, 0); // 22:00:00
+            $startTime2 = Carbon::createFromTime(20, 0, 0);  // 20:00:00
+            $endTime2 = Carbon::createFromTime(23, 50, 0); // 22:00:00
 
             // Kiểm tra nếu KHÔNG nằm trong các khung giờ hợp lệ
-            var_dump($gioHienTai.'--'.$khung2_ketthuc);
+        
             if (
-                !($gioHienTai->between($khung1_batdau, $khung1_ketthuc)) &&
-                !($gioHienTai->between($khung2_batdau, $khung2_ketthuc))
+                !($currentTime->between($startTime1, $endTime1)) &&
+                !($currentTime->between($startTime2, $endTime2))
             ) {
                 throw new Exception('Bạn chỉ có thể đăng ký trong khung giờ 08:00–16:00 hoặc 20:00–22:00.');
             }
 
-            // // 2. Kiểm tra thời gian đăng ký (08:00-16:00 hoặc 20:00-22:00)
-            // $gioHienTai = Carbon::now()->format('H:i:s');
-            // $result = DB::select('CALL sp_check_registration_time(?, @valid, @session, @message)', [$gioHienTai]);
-            // $validationResult = DB::select('SELECT @valid as valid, @session as session, @message as message')[0];
-            
-            // if (!$validationResult->valid) {
-            //     throw new Exception($validationResult->message);
-            // }
+            $existingCompany = DB::table('vehicle_registrations')
+                ->where('truck_plate', $request->truck_plate)
+                ->whereNotIn('registration_status', ['cancelled', 'rejected'])
+                ->select('transportation_company', 'created_at')
+                ->first();
+            if ($existingCompany) {
+                // Xe đã tồn tại, kiểm tra có phải cùng đơn vị không
+                if ($existingCompany->transportation_company == $request->transportation_company) {
+                    throw new Exception(
+                        'Biển số xe ' . $request->truck_plate . ' đã được đăng ký cho đơn vị "' . 
+                        $existingCompany->transportation_company . '". ' .
+                        'Mỗi xe chỉ được phép chạy cho một đơn vị vận chuyển duy nhất.'
+                    );
+                }
+            }
 
-            // // 3. Chuẩn hóa biển số xe
-            // $truckPlate = $this->normalizePlate($request->truck_plate);
-            // $trailerPlate = $request->trailer_plate ? $this->normalizePlate($request->trailer_plate) : null;
-
-            // // 4. Kiểm tra xe đã đăng ký chưa
-            // $result = DB::select('CALL sp_check_truck_registered(?, ?, @exists, @message)', 
-            //     [$truckPlate, $ngayNhanHang->format('Y-m-d')]);
-            // $checkResult = DB::select('SELECT @exists as exists, @message as message')[0];
+            // Kiểm tra xe đã đăng ký cho ngày này chưa
+            $existingRegistration = DB::table('vehicle_registrations')
+                ->where('truck_plate', $request->truck_plate)
+                ->where('register_date', $nextDay)
+                ->whereNotIn('registration_status', ['cancelled', 'rejected'])
+                ->first();
             
-            // if ($checkResult->exists) {
-            //     throw new Exception($checkResult->message);
-            // }
+            if ($existingRegistration) {
+                throw new Exception(
+                    'Xe ' . $request->truck_plate . ' đã được đăng ký cho ngày ' . 
+                    Carbon::now()->format('d/m/Y') . '. Mỗi xe chỉ được đăng ký 1 lần/ngày.'
+                );
+            }
 
             // 5. Insert dữ liệu vào database
-            $dangKyId = DB::table('dang_ky_xe')->insertGetId([
-                'register_date' => $registerDate->format('Y-m-d'),
-                'ngay_nhan_hang' => $ngayNhanHang->format('Y-m-d'),
-                'gio_dang_ky' => '',
-                'lan_dang_ky' => 1,
+            $dangKyId = DB::table('vehicle_registrations')->insertGetId([
+                'register_date' => $nextDay,
+                'delivery_date' => $request->delivery_date,
+                'registration_time' => '',
+                'registration_round' => 1,
                 'contract_no' => $request->contract_no,
                 'truck_plate' => $request->truck_plate,
                 'trailer_plate' => $request->trailer_plate,
@@ -152,42 +195,55 @@ class RegisterCarController extends Controller
                 'transportation_company' => $request->transportation_company,
                 'subcontractor' => $request->subcontractor ? strtoupper($request->subcontractor) : null,
                 'vehicle_status' => $request->vehicle_status ?? 'RO',
-                'registration_status' => 'cho_duyet',
-                'ghi_chu' => $request->ghi_chu,
+                'registration_status' => 'pending_approval',
+                'note' => $request->note,
                 'created_by' => auth()->user()->name ?? 'System',
                 'ip_address' => $request->ip(),
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ]);
 
+            
             DB::commit();
-
             // Lấy thông tin đăng ký vừa tạo
-            $registration = DB::table('dang_ky_xe')->where('id', $dangKyId)->first();
+            $registration = DB::table('vehicle_registrations')->where('id', $dangKyId)->first();
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Đăng ký xe thành công! Mã đăng ký: #' . $dangKyId,
                     'data' => $registration
-                ], 201);
+                ], 200);
             }
 
-            return redirect()->route('dang-ky-xe.index')
+            return redirect()->route('register-car.index')
                 ->with('success', 'Đăng ký xe thành công! Mã đăng ký: #' . $dangKyId);
 
         } catch (Exception $e) {
             DB::rollBack();
+            $message = $e->getMessage();
+            dd($e);
+            if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
+                $message = 'Xe này đã được đăng ký trong ngày. Vui lòng kiểm tra lại.';
+            } else {
+                // Lấy error code từ các nguồn khác nếu errorInfo không có
+                $errorCode = $e->getCode();
+                if ($errorCode == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                    $message = 'Dữ liệu bị trùng lặp. Xe này có thể đã được đăng ký.';
+                } else {
+                    $message = $e->getMessage();
+                }
+            }
             
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $message
                 ], 400);
             }
 
             return redirect()->back()
-                ->with('error', $e->getMessage())
+                ->with('error', $message)
                 ->withInput();
         }
     }
@@ -215,6 +271,27 @@ class RegisterCarController extends Controller
 
             $insertData = [];
 
+            $currentTime = Carbon::now()->format('H:i:s');
+            $currentTime = Carbon::createFromFormat('H:i:s', $currentTime);
+
+            // Tạo hai khung giờ cho phép
+            $startTime1 = Carbon::createFromTime(8, 0, 0);   // 08:00:00
+            $endTime1 = Carbon::createFromTime(16, 0, 0); // 16:00:00
+
+            $startTime2 = Carbon::createFromTime(20, 0, 0);  // 20:00:00
+            $endTime2 = Carbon::createFromTime(23, 50, 0); // 22:00:00
+
+            // Kiểm tra nếu KHÔNG nằm trong các khung giờ hợp lệ
+        
+            if (
+                !($currentTime->between($startTime1, $endTime1)) &&
+                !($currentTime->between($startTime2, $endTime2))
+            ) {
+                throw new Exception('Bạn chỉ có thể đăng ký trong khung giờ 08:00–16:00 hoặc 20:00–22:00.');
+            }
+
+            $registerDate = Carbon::now();
+            $nextDay = $registerDate->addDay()->format('Y-m-d');
             foreach ($rows as $row) {
                 // Bỏ qua hàng trống
                 if (empty($row[3]) || empty($row[11])) {
@@ -222,10 +299,10 @@ class RegisterCarController extends Controller
                 }
 
                 $insertData[] = [
-                    'register_date' => '2025-10-21',
-                    'ngay_nhan_hang' => '2025-10-21',
-                    'gio_dang_ky' => '',
-                    'lan_dang_ky' => 1,
+                    'register_date' => $nextDay,
+                    'delivery_date' => $nextDay,
+                    'registration_time' => '',
+                    'registration_round' => 1,
                     'contract_no' => $row[2] ?? null,
                     'truck_plate' => $row[3] ?? null,
                     'trailer_plate' => $row[6] ?? null,
@@ -242,8 +319,8 @@ class RegisterCarController extends Controller
                     'transportation_company' => $row[15] ?? null,
                     'subcontractor' => $row[16] ?? null,
                     'vehicle_status' => $row[17] ?? null,
-                    'registration_status' => 'cho_duyet',
-                    'ghi_chu' => '',
+                    'registration_status' => 'pending_approval',
+                    'note' => '',
                     'created_by' => auth()->user()->name ?? 'System',
                     'ip_address' => $request->ip(),
                     'created_at'   => Carbon::now(),
@@ -255,7 +332,7 @@ class RegisterCarController extends Controller
             if (count($insertData) > 0) {
               
                 // Insert một lần để tăng hiệu suất
-                DB::table('dang_ky_xe')->insert($insertData);
+                DB::table('vehicle_registrations')->insert($insertData);
                 DB::commit();
                 return response()->json([
                     'message' => 'Import dữ liệu thành công!',
@@ -272,38 +349,24 @@ class RegisterCarController extends Controller
             return response()->json(['message' => 'Import dữ liệu thành công!']);
         } catch (\Exception $e) {
             DB::rollBack();
+            $message = $e->getMessage();
+            if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
+                $message = 'Xe này đã được đăng ký trong ngày. Vui lòng kiểm tra lại.';
+            } else {
+                // Lấy error code từ các nguồn khác nếu errorInfo không có
+                $errorCode = $e->getCode();
+                if ($errorCode == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                    $message = 'Xe này đã được đăng ký trong ngày. Vui lòng kiểm tra lại.';
+                } else {
+                    $message = $e->getMessage();
+                }
+            }
             return response()->json([
-                'message' => 'Lỗi khi import: ' . $e->getMessage()
+                'message' => 'Lỗi khi import: ' . $message
             ], 500);
         }
     }
 
-    /**
-     * Check if truck already registered (AJAX)
-     */
-    public function checkTruck(Request $request)
-    {
-        try {
-            $truckPlate = $this->normalizePlate($request->truck_plate);
-            $ngayNhanHang = $request->ngay_nhan_hang;
-
-            $result = DB::select('CALL sp_check_truck_registered(?, ?, @exists, @message)', 
-                [$truckPlate, $ngayNhanHang]);
-            $checkResult = DB::select('SELECT @exists as exists, @message as message')[0];
-
-            return response()->json([
-                'success' => true,
-                'exists' => (bool)$checkResult->exists,
-                'message' => $checkResult->message
-            ]);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Lỗi kiểm tra: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * Display the specified resource.
