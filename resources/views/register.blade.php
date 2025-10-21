@@ -236,7 +236,7 @@
                                         <select class="form-select @error('vehicle_status') is-invalid @enderror" 
                                                 id="vehicle_status" 
                                                 name="vehicle_status">
-                                            <option value="RO" {{ old('vehicle_status', 'RO') == 'RO' ? 'selected' : '' }}>RO - Ready for Operation</option>
+                                            <option value="RO" {{ old('vehicle_status', 'RO') == 'RO' ? 'selected' : '' }}>RO - Sẵn sàng hoạt động</option>
                                             <option value="MAINTENANCE" {{ old('vehicle_status') == 'MAINTENANCE' ? 'selected' : '' }}>Đang Bảo Trì</option>
                                             <option value="ACTIVE" {{ old('vehicle_status') == 'ACTIVE' ? 'selected' : '' }}>Đang Hoạt Động</option>
                                         </select>
