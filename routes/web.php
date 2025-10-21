@@ -1,0 +1,23 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\RegisterCarController;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+// Route::resource('register-car', RegisterCarController::class);
+Route::prefix('register-car')->name('register-car.')->group(function () {
+    Route::get('/', [RegisterCarController::class, 'index'])->name('index');
+    Route::get('/create', [RegisterCarController::class, 'create'])->name('create');
+    Route::post('/store', [RegisterCarController::class, 'store'])->name('store');
+    Route::get('/{id}', [RegisterCarController::class, 'show'])->name('show');
+    Route::get('/{id}/edit', [RegisterCarController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [RegisterCarController::class, 'update'])->name('update');
+    Route::delete('/{id}', [RegisterCarController::class, 'destroy'])->name('destroy');
+    
+    // Route kiểm tra xe đã đăng ký
+    Route::post('/check-truck', [RegisterCarController::class, 'checkTruck'])->name('check-truck');
+    Route::post('/import-file', [RegisterCarController::class, 'import'])->name('import-file');
+});
