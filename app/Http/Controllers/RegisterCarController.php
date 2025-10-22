@@ -427,7 +427,18 @@ class RegisterCarController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $car = DB::table('vehicle_registrations')
+                ->where('id', $id)
+                ->first();
+        // if ($request->ajax() || $request->wantsJson()) {
+        //     return response()->json([
+        //         'status' => 'success',
+        //         'data' => $detail
+        //     ], 200);
+        // }
+
+        // Nếu không phải Ajax, trả về view
+        return view('detail', compact('car'));
     }
 
     /**
@@ -452,5 +463,10 @@ class RegisterCarController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+    public function showImportForm()
+    {
+        dd(33);
+        return view('welcome');
     }
 }

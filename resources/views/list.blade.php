@@ -88,8 +88,7 @@
                 data.forEach(car => {
                     rows += `
                         <tr>
-                            <td>${car.id}</td>
-                            <td>${car.register_date}</td>
+                            <td><a href="{{ url('register-car') }}/${car.id}" class="">${car.id}</a></td>                            <td>${car.register_date}</td>
                             <td>${car.contract_no}</td>
                             <td>${car.truck_plate}</td>
                             <td>${car.country}</td>
