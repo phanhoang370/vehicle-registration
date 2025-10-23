@@ -135,7 +135,9 @@
                             </div>
                         </div>
                     @endif
-                    <button id="downloadErrorBtn" class="btn btn-danger d-none">Tải file lỗi</button>
+                    <button id="downloadErrorBtnClient" class="btn btn-danger d-none">Tải danh sách file upload lỗi client</button>
+                    <button id="downloadErrorBtn" class="btn btn-danger d-none">Tải danh sách file upload lỗi</button>
+                    
                     <!-- Form upload -->
                     <form action="{{ route('register-car.import-process') }}" 
                           method="POST" 
@@ -215,7 +217,9 @@
 
 @section('scripts')
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+    let errorDetails = {};
      $(document).ready(function() {
         // Preview file info
     $('#excel_file').on('change', function(e) {
@@ -228,7 +232,7 @@
             $('#filePreview').addClass('d-none');
         }
     });
-
+    
     // AJAX Submit
     $('#formImport').on('submit', function(e) {
         e.preventDefault();
@@ -252,6 +256,7 @@
             $('#progressBar').css('width', progress + '%').text(progress + '%');
         }, 200);
         const downloadBtn = document.getElementById('downloadErrorBtn');
+        const downloadBtnClient = document.getElementById('downloadErrorBtnClient');
         $.ajax({
             url: '{{ route("register-car.import-process") }}', // route trong Laravel
             type: 'POST',
@@ -289,6 +294,7 @@
                                 // resultHtml += '</ul>';
                                 if (response.error_file) {
                                     downloadBtn.classList.remove('d-none');
+                                    downloadBtnClient.classList.remove('d-none');
                                     downloadBtn.onclick = () => window.location.href = response.error_file;
                                 }
                                 // Tự động tải file lỗi
@@ -300,6 +306,14 @@
                                 //     link.click();
                                 //     document.body.removeChild(link);
                                 // }
+
+                                const { error_details } = response;
+                                if (!Array.isArray(error_details) || error_details.length === 0) {
+                                    alert('Không có lỗi để export!');
+                                    return;
+                                }
+                                errorDetails = error_details;
+
                             }
                             resultHtml += '</div>';
                         } else {
@@ -320,6 +334,73 @@
         
 
     });
+
+    $('#downloadErrorBtnClient').on('click', function(e) {
+// 🗂️ Định nghĩa header
+                                const headers = [
+                                "ID",
+                                "Register Date",
+                                "Contract No",
+                                "Truck Plate",
+                                "Country",
+                                "Wheel",
+                                "Trailer Plate",
+                                "Truck weight",
+                                "Pay load",
+                                "Container No1",
+                                "Container No2",
+                                "Driver Name",
+                                "ID/Passport",
+                                "Phone number",
+                                "Destination EST",
+                                "Transportion Company",
+                                "Subcontractor",
+                                "Vehicle Status",
+                                "Registration Status",
+                                "Time"
+                                ];
+
+                                // 🔸 Map dữ liệu
+                                let mappedData = errorDetails.map(item => {
+                                const obj = {};
+                                headers.forEach((key, index) => {
+                                    obj[key] = item.data?.[index] ?? ''; // nếu không có thì để chuỗi rỗng
+                                });
+                                obj["Error Message"] = item.error || '';
+                                return obj;
+                                });
+                                // ✅ Bước lọc: loại bỏ toàn bộ dòng rỗng (chỉ có null hoặc "")
+                                mappedData = mappedData.filter(row => {
+                                const hasContent = Object.entries(row).some(([key, value]) => {
+                                    if (key === "Error Message") return true; // vẫn giữ dòng có thông báo lỗi
+                                    return value !== null && value !== "" && value !== undefined;
+                                });
+                                return hasContent;
+                                });
+
+                                // 🧹 Làm sạch key rác
+                                const cleanData = mappedData.map(row => {
+                                const newRow = {};
+                                Object.keys(row).forEach(k => {
+                                    if (k && k.toLowerCase() !== 'null' && k.trim() !== '') {
+                                    newRow[k.trim()] = row[k];
+                                    }
+                                });
+                                return newRow;
+                                });
+
+                                // 🔹 Tạo sheet & workbook
+                                const ws = XLSX.utils.json_to_sheet(cleanData);
+                                ws["!cols"] = Object.keys(cleanData[0]).map(key => ({ wch: key.length + 5 }));
+                                const wb = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(wb, ws, "Error Details");
+
+                                // 🔹 Xuất file
+                                const fileName = `Import_Error_Details_${new Date().toISOString().slice(0,10)}.xlsx`;
+                                XLSX.writeFile(wb, fileName);
+                                console.log(`✅ Export ${cleanData.length}/${errorDetails.length} dòng hợp lệ.`);
+    });
+
 });
 </script>
 @endsection

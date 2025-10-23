@@ -34,15 +34,22 @@ class ImportExcelController extends Controller
 
         // Đọc dữ liệu Excel thành mảng
         $data = Excel::toArray([], $file);
-
         // Mảng đầu tiên trong $data là sheet đầu tiên
-        $rows = $data[0];
+        $rowsGet = $data[0];
 
         // Lấy header (dòng đầu tiên)
-        $header = $rows[0];
+        $header =$rowsGet[0];
         
         // Bỏ dòng tiêu đề
-        unset($rows[0]);
+        unset($rowsGet[0]);
+        $rows = [];
+        foreach ($rowsGet as $index => $row) {
+            if ($this->isEmptyRow($row)) {
+                continue; // Bỏ qua dòng trống
+            }else {
+                 array_push($rows, $row); 
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -58,7 +65,7 @@ class ImportExcelController extends Controller
             $startTime1 = Carbon::createFromTime(8, 0, 0);   // 08:00:00
             $endTime1 = Carbon::createFromTime(16, 0, 0);    // 16:00:00
             $startTime2 = Carbon::createFromTime(20, 0, 0);  // 20:00:00
-            $endTime2 = Carbon::createFromTime(23, 0, 0);    // 22:00:00
+            $endTime2 = Carbon::createFromTime(22, 00, 0);    // 22:00:00
 
             if (
                 !($currentTime->between($startTime1, $endTime1)) &&
@@ -108,9 +115,11 @@ class ImportExcelController extends Controller
                     $plateCount[$truckPlate]++;
                 }
             }
-
             foreach ($rows as $index => $row) {
                 try {
+                    if ($this->isEmptyRow($row)) {
+                        continue; // Bỏ qua dòng trống
+                    }
                     // Validate dữ liệu cơ bản
                     if (empty($row[3]) || empty($row[11]) || empty($row[15]) || empty($row[2])) {
                         throw new Exception('Thiếu thông tin bắt buộc: Biển số xe, Tên lái xe, Đơn vị vận chuyển hoặc Số hợp đồng');
@@ -308,7 +317,7 @@ class ImportExcelController extends Controller
 
             // Thêm dữ liệu lỗi
             $rowIndex = 2;
-            // dd($errorRows);
+
             foreach ($errorRows as $error) {
                 $rowData = array_merge(
                     $error['data'],         // Dữ liệu gốc
@@ -457,5 +466,14 @@ class ImportExcelController extends Controller
 
         $writer->save('php://output');
         exit;
+    }
+    private function isEmptyRow($row)
+    {
+        foreach ($row as $cell) {
+            if (!empty($cell)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
