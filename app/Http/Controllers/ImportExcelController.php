@@ -248,7 +248,8 @@ class ImportExcelController extends Controller
                     'success' => $successCount,
                     'errors' => $errorCount,
                 ],
-                'error_file' => $errorFilePath ? asset('storage/' . $errorFilePath) : null,
+                // 'error_file' => $errorFilePath ? asset('storage/' . $errorFilePath) : null,
+                'error_file' => $errorFilePath ? '/public/download.php?file='.$errorFilePath : null,
                 'error_details' => $errorRows
             ]);
 
